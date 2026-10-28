@@ -65,7 +65,7 @@ The binary is at `.build/release/db-proxy`. Copy or symlink it somewhere on your
 ```sh
 mkdir -p ~/.config/db-proxy
 cp databases.example.toml ~/.config/db-proxy/databases.toml
-$EDITOR ~/.config/db-proxy/databases.toml
+db-proxy edit        # $EDITOR (or TextEdit); validates on close, restarts the service only if valid
 ```
 
 The config is grouped by server, meaning one Postgres host plus its roles:
@@ -112,11 +112,9 @@ FAIL prod/orders read as app_ro: {"error":"cannot reach prod (prod-db…), is th
 db-proxy install
 ```
 
-This writes `~/Library/LaunchAgents/dev.db-proxy.plist` with `RunAtLoad` and `KeepAlive`, and starts it. Logs go to `~/Library/Logs/db-proxy.log`. **After changing the config or tokens, restart it:**
+This writes `~/Library/LaunchAgents/dev.db-proxy.plist` with `RunAtLoad` and `KeepAlive`, and starts it. Logs go to `~/Library/Logs/db-proxy.log`.
 
-```sh
-launchctl kickstart -k gui/$(id -u)/dev.db-proxy
-```
+Config, passwords and tokens are read when the service starts, and every command that changes them restarts it for you: `edit`, `password set|rm`, `token add|rm`, and `agent add|rm`. Use `db-proxy restart` for anything else.
 
 ### 6. Connect your agents
 
@@ -127,9 +125,9 @@ db-proxy agent add codex      # ~/.codex/config.toml
 db-proxy agent list
 ```
 
-Each agent gets its own token (`token/<agent>` in the Keychain), so the query log shows which agent ran what. The MCP server is registered as **`db-proxy`**, and its tools appear as e.g. `mcp__db-proxy__query`. Agent config files are written with mode `0600`, and the original is kept once as `<file>.bak-before-db-proxy`. Adding or removing a token restarts the installed service automatically.
+Each agent gets its own token (`token/<agent>` in the Keychain), so the query log shows which agent ran what. The MCP server is registered as **`db-proxy`**, and its tools appear as e.g. `mcp__db-proxy__query`. Agent config files are written with mode `0600`, and the original is kept once as `<file>.bak-before-db-proxy`. Adding or removing an agent restarts the service automatically.
 
-**Any other MCP client** that supports Streamable HTTP: create a token with `db-proxy token add <name>`, restart the service, and use URL `http://127.0.0.1:7432/mcp` with header `Authorization: Bearer <token>`.
+**Any other MCP client** that supports Streamable HTTP: create a token with `db-proxy token add <name>` and use URL `http://127.0.0.1:7432/mcp` with header `Authorization: Bearer <token>`.
 
 ## CLI reference
 
@@ -137,6 +135,8 @@ Each agent gets its own token (`token/<agent>` in the Keychain), so the query lo
 |---|---|
 | `db-proxy serve [--config] [--port 7432] [--log-dir]` | Run the HTTP MCP server on 127.0.0.1 |
 | `db-proxy check [--config]` | Validate config, Keychain entries and connectivity of every database/role |
+| `db-proxy edit [--config]` | Open the config in `$EDITOR`/TextEdit; on close, validate and restart (an invalid config is not applied) |
+| `db-proxy restart` | Restart the background service |
 | `db-proxy agent add <claude\|cursor\|codex> [--port]` | Create/reuse the agent's token and register db-proxy in its MCP config |
 | `db-proxy agent rm <agent>` | Unregister from the agent and revoke its token |
 | `db-proxy agent list` | Show agents, tokens and registrations |
@@ -287,4 +287,4 @@ Design notes and decisions: [`DESIGN.md`](DESIGN.md).
 - `tls = "require"` encrypts but doesn't verify the server certificate (like libpq `sslmode=require`).
 - No transactions across calls; one call is one unit of work.
 - A result with zero rows returns empty `columns`, and `numeric` drops trailing zeros (`12.3400` → `"12.34"`).
-- Config and token changes need a restart.
+- Config, password and token changes restart the service, so an in-flight query can fail with a connection error.

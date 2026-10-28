@@ -14,11 +14,10 @@ https://github.com/sanchitkalra/db-proxy-mcp
      - start the background server (shows in System Settings → General → Login Items)
      - add the `db-proxy` command to /usr/local/bin (asks for your password)
 
-4. In Terminal:
-     $EDITOR ~/.config/db-proxy/databases.toml
+4. In Terminal (each step applies itself, no restarts needed):
+     db-proxy edit                          # add your databases
      db-proxy password set <server>/<user>
-     db-proxy agent add claude          # or cursor, codex
-     launchctl kickstart -k gui/$(id -u)/dev.db-proxy
+     db-proxy agent add claude              # or cursor, codex
      db-proxy check
 
 Uninstall: db-proxy service disable, then delete /Applications/db-proxy.app and /usr/local/bin/db-proxy.

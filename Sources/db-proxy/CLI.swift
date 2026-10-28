@@ -20,7 +20,7 @@ struct DBProxy: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "db-proxy",
         abstract: "One local MCP server in front of all your Postgres databases.",
-        subcommands: [Serve.self, Check.self, Agent.self, Password.self, Token.self, Service.self, Install.self])
+        subcommands: [Serve.self, Check.self, Edit.self, Agent.self, Password.self, Token.self, Restart.self, Service.self, Install.self])
 }
 
 struct ConfigOption: ParsableArguments {
@@ -97,6 +97,44 @@ struct Check: AsyncParsableCommand {
     }
 }
 
+struct Edit: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Edit the config in $EDITOR (or TextEdit), validate it, and restart the service if it's valid.")
+    @OptionGroup var options: ConfigOption
+
+    func run() throws {
+        let path = options.config
+        if !FileManager.default.fileExists(atPath: path) {
+            try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: path, contents: nil, attributes: [.posixPermissions: 0o600])
+        }
+        let p = Process()  // inherits the terminal, so vim/nano work
+        p.executableURL = URL(filePath: "/bin/sh")
+        if let editor = ProcessInfo.processInfo.environment["VISUAL"] ?? ProcessInfo.processInfo.environment["EDITOR"], !editor.isEmpty {
+            p.arguments = ["-c", "\(editor) \"$0\"", path]
+        } else {
+            p.arguments = ["-c", "open -W -t \"$0\"", path]  // waits until the TextEdit window closes
+            print("opened in TextEdit; close the window when done")
+        }
+        try p.run()
+        p.waitUntilExit()
+
+        do {
+            let config = try Config.load(path)
+            print("config ok: \(config.targets.count) databases")
+        } catch {
+            print("config NOT applied, the running service keeps the previous one:\n  \(error)")
+            throw ExitCode.failure
+        }
+        restartServiceIfInstalled()
+    }
+}
+
+struct Restart: ParsableCommand {
+    static let configuration = CommandConfiguration(abstract: "Restart the background service (reloads config, passwords, tokens).")
+    func run() { restartServiceIfInstalled() }
+}
+
 struct Password: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Store or remove a database password in the Keychain.",
@@ -118,13 +156,18 @@ struct Password: ParsableCommand {
             }
             try Keychain.set(account, password)
             print("stored \(account)")
+            restartServiceIfInstalled()
         }
     }
 
     struct Remove: ParsableCommand {
         static let configuration = CommandConfiguration(commandName: "rm", abstract: "Remove a stored password.")
         @Argument(help: "<server>/<user>") var account: String
-        func run() throws { print(try Keychain.delete(account) ? "removed \(account)" : "\(account) was not stored") }
+        func run() throws {
+            guard try Keychain.delete(account) else { return print("\(account) was not stored") }
+            print("removed \(account)")
+            restartServiceIfInstalled()
+        }
     }
 }
 
@@ -141,13 +184,18 @@ struct Token: ParsableCommand {
             let token = randomToken()
             try Keychain.set("token/\(agent)", token)
             print(token)
+            restartServiceIfInstalled()
         }
     }
 
     struct Remove: ParsableCommand {
         static let configuration = CommandConfiguration(commandName: "rm", abstract: "Revoke an agent's token.")
         @Argument var agent: String
-        func run() throws { print(try Keychain.delete("token/\(agent)") ? "revoked \(agent)" : "no token for \(agent)") }
+        func run() throws {
+            guard try Keychain.delete("token/\(agent)") else { return print("no token for \(agent)") }
+            print("revoked \(agent)")
+            restartServiceIfInstalled()
+        }
     }
 }
 

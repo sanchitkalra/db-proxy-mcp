@@ -113,11 +113,11 @@ enum FirstRun {
 
         let next = """
             Next, in Terminal:
-              1. Edit ~/.config/db-proxy/databases.toml
+              1. db-proxy edit                       add your databases
               2. db-proxy password set <server>/<user>
-              3. db-proxy agent add claude     (or cursor, codex)
+              3. db-proxy agent add claude           (or cursor, codex)
               4. db-proxy check
-            After editing the config: launchctl kickstart -k gui/$(id -u)/\(Install.label)
+            Each step applies itself; no restarts needed.
             """
         let a = NSAlert()
         a.messageText = "db-proxy is installed"
