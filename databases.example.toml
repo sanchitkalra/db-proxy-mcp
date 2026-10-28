@@ -1,0 +1,35 @@
+# db-proxy config. Copy to ~/.config/db-proxy/databases.toml and edit. No secrets in this file.
+# Passwords live in the Keychain: service "db-proxy", account "<server>/<user>".
+#   db-proxy password set dev/app_ro
+# Agents address a database as (env, db), where db is the Postgres database name.
+# `db-proxy check` validates everything; changes apply when `serve` restarts.
+
+[defaults]
+statement_timeout = "30s"
+max_result_bytes = 10_000_000   # proxy self-protection: bigger results are cancelled with an error
+pool_size = 2                   # max connections per (server, user, database)
+
+[server.local]
+env = "local"
+host = "localhost"
+tls = "disable"
+read_user = "app"
+write_user = "app"    # same role is fine: read mode is enforced by BEGIN READ ONLY
+databases = ["orders", "billing"]
+
+[server.dev]
+env = "dev"
+host = "dev-db.cluster-xxxx.us-east-1.rds.amazonaws.com"
+tls = "require"       # encrypted, certificate not verified (libpq sslmode=require)
+read_user = "app_ro"
+write_user = "app_rw"
+databases = ["orders", "billing"]
+
+[server.prod]
+env = "prod"
+host = "prod-db.cluster-ro-xxxx.us-east-1.rds.amazonaws.com"
+tls = "require"
+read_user = "app_ro"  # no write_user: mode=write is rejected before reaching Postgres
+statement_timeout = "10s"
+lock_timeout = "2s"
+databases = ["orders", "billing"]
