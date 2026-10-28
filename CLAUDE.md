@@ -5,6 +5,7 @@ db-proxy: a Swift macOS CLI + local HTTP MCP server that fronts many Postgres da
 ## Layout
 
 - `Sources/db-proxy/CLI.swift`: ArgumentParser commands (`serve`, `check`, `password`, `token`, `install`).
+- `Agents.swift`: `agent add|rm|list` for claude/cursor/codex (MCP name `db-proxy`). `DB_PROXY_AGENT_HOME` redirects the config files for tests. Re-check each agent's config format against its docs before changing it.
 - `Serve.swift`: MCP server, tools, HTTP listener (Hummingbird), pools per (server, user, db), query log wiring.
 - `Query.swift`: one call = lease → `BEGIN [READ ONLY]` → `SET LOCAL` timeouts → agent SQL → commit/rollback → `DISCARD ALL`. Lease timeout, read retry, result cap, cell → JSON decoding.
 - `Config.swift`: TOML config (`TOMLDecoder`, snake_case keys), validation, connection configs, connect diagnosis.

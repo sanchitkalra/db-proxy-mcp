@@ -83,10 +83,9 @@ db-proxy password set dev/app_rw
 db-proxy password set prod/app_ro
 ```
 
-### 4. Create a token per agent and check everything
+### 4. Check everything
 
 ```sh
-db-proxy token add claude-code        # prints the token once
 db-proxy check                        # every (database, role): password present, connects, runs SELECT 1
 ```
 
@@ -112,14 +111,16 @@ launchctl kickstart -k gui/$(id -u)/dev.db-proxy
 
 ### 6. Connect your agents
 
-**Claude Code:**
-
 ```sh
-claude mcp add --transport http --scope user db http://127.0.0.1:7432/mcp \
-  --header "Authorization: Bearer <token from step 4>"
+db-proxy agent add claude     # Claude Code (via `claude mcp add`, user scope)
+db-proxy agent add cursor     # ~/.cursor/mcp.json
+db-proxy agent add codex      # ~/.codex/config.toml
+db-proxy agent list
 ```
 
-**Any MCP client** that supports Streamable HTTP: URL `http://127.0.0.1:7432/mcp`, header `Authorization: Bearer <token>`.
+Each agent gets its own token (`token/<agent>` in the Keychain), so the query log shows which agent ran what. The MCP server is registered as **`db-proxy`**, and its tools appear as e.g. `mcp__db-proxy__query`. Agent config files are written with mode `0600`, and the original is kept once as `<file>.bak-before-db-proxy`. Adding or removing a token restarts the installed service automatically.
+
+**Any other MCP client** that supports Streamable HTTP: create a token with `db-proxy token add <name>`, restart the service, and use URL `http://127.0.0.1:7432/mcp` with header `Authorization: Bearer <token>`.
 
 ## CLI reference
 
@@ -127,9 +128,12 @@ claude mcp add --transport http --scope user db http://127.0.0.1:7432/mcp \
 |---|---|
 | `db-proxy serve [--config] [--port 7432] [--log-dir]` | Run the HTTP MCP server on 127.0.0.1 |
 | `db-proxy check [--config]` | Validate config, Keychain entries and connectivity of every database/role |
+| `db-proxy agent add <claude\|cursor\|codex> [--port]` | Create/reuse the agent's token and register db-proxy in its MCP config |
+| `db-proxy agent rm <agent>` | Unregister from the agent and revoke its token |
+| `db-proxy agent list` | Show agents, tokens and registrations |
 | `db-proxy password set <server>/<user>` | Store a password (terminal prompt without echo, or one line on stdin) |
 | `db-proxy password rm <server>/<user>` | Remove a password |
-| `db-proxy token add <agent>` | Create a 256-bit token for an agent and print it once |
+| `db-proxy token add <name>` | Create a 256-bit token for a custom client and print it once |
 | `db-proxy token rm <agent>` | Revoke an agent's token (takes effect on restart) |
 | `db-proxy install [--config]` | Install and start the launchd agent |
 

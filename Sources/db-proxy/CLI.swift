@@ -8,7 +8,7 @@ struct DBProxy: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "db-proxy",
         abstract: "One local MCP server in front of all your Postgres databases.",
-        subcommands: [Serve.self, Check.self, Password.self, Token.self, Install.self])
+        subcommands: [Serve.self, Check.self, Agent.self, Password.self, Token.self, Install.self])
 }
 
 struct ConfigOption: ParsableArguments {
@@ -118,9 +118,7 @@ struct Token: ParsableCommand {
         @Argument(help: "Agent name, e.g. claude-code") var agent: String
         func run() throws {
             guard agent.wholeMatch(of: /[A-Za-z0-9._-]+/) != nil else { throw ValidationError("agent name: letters, digits, . _ - only") }
-            var bytes = [UInt8](repeating: 0, count: 32)
-            guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else { throw ValidationError("no randomness") }
-            let token = bytes.map { String(format: "%02x", $0) }.joined()
+            let token = randomToken()
             try Keychain.set("token/\(agent)", token)
             print(token)
         }
