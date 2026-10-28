@@ -6,6 +6,8 @@ db-proxy: a Swift macOS CLI + local HTTP MCP server that fronts many Postgres da
 
 - `Sources/db-proxy/CLI.swift`: ArgumentParser commands (`serve`, `check`, `password`, `token`, `install`).
 - `Agents.swift`: `agent add|rm|list` for claude/cursor/codex (MCP name `db-proxy`). `DB_PROXY_AGENT_HOME` redirects the config files for tests. Re-check each agent's config format against its docs before changing it.
+- `App.swift`: db-proxy.app support. The app's main executable *is* the CLI. Finder launch (no args, no tty) runs `FirstRun` (config, SMAppService agent, `/usr/local/bin` wrapper). `service enable|disable|status`.
+- `packaging/`: Info.plist, the SMAppService agent plist (label `dev.db-proxy`, `BundleProgram`), DMG readme. `scripts/package.sh`: universal app + DMG in `dist/`.
 - `Serve.swift`: MCP server, tools, HTTP listener (Hummingbird), pools per (server, user, db), query log wiring.
 - `Query.swift`: one call = lease → `BEGIN [READ ONLY]` → `SET LOCAL` timeouts → agent SQL → commit/rollback → `DISCARD ALL`. Lease timeout, read retry, result cap, cell → JSON decoding.
 - `Config.swift`: TOML config (`TOMLDecoder`, snake_case keys), validation, connection configs, connect diagnosis.
@@ -32,6 +34,8 @@ Needs Xcode; `build.sh` sets `DEVELOPER_DIR` because the Command Line Tools' Swi
 - **Keep the tool schema tiny** (2 tools, no `outputSchema`, no `structuredContent`). Context cost is the point of the project.
 - **The SDK's `Initialize` handler is replaced after `server.start`** because the built-in one rejects every client after the first. Keep that override.
 - **`serve` calls `exit(0)` after `app.runService()` returns** (SIGTERM). Otherwise the pool tasks keep the process alive and launchd stops hang.
+- **Bundle id and signing identifier stay `dev.db-proxy`**, signed by the same identity. Keychain item access depends on it.
+- **Always call `SMAppService.register()`.** `status` can report `.enabled` for another job with the same label.
 - **No secrets or real hostnames in the repo.** `databases.toml` is gitignored; use `databases.example.toml`.
 
 ## Gotchas

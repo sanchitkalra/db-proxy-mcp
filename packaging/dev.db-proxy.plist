@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>dev.db-proxy</string>
+	<key>BundleProgram</key>
+	<string>Contents/MacOS/db-proxy</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>db-proxy</string>
+		<string>serve</string>
+		<string>--log-file</string>
+		<string>~/Library/Logs/db-proxy.log</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+</dict>
+</plist>

@@ -40,7 +40,16 @@ Running one `postgres-mcp`-style server per database hurts in several ways:
 - Xcode 16 or later (Swift 6). See [Troubleshooting](#troubleshooting) if `swift build` fails with the Command Line Tools.
 - An **Apple Development** signing certificate (free with an Apple ID) so Keychain access survives rebuilds. See [Signing](#signing).
 
-## Setup
+## Install from the DMG
+
+1. Download `db-proxy-<version>.dmg` from Releases and drag **db-proxy.app** into **Applications**.
+2. Open it. This build is signed but **not notarized**, so macOS blocks the first launch: click **Done**, then go to **System Settings → Privacy & Security**, and next to *"db-proxy" was blocked* click **Open Anyway**. (Or: `xattr -dr com.apple.quarantine /Applications/db-proxy.app`.) This is needed once per version.
+3. Open it again. It creates `~/.config/db-proxy/databases.toml` from the example, starts the background service (listed under System Settings → General → Login Items), and installs the `db-proxy` command in `/usr/local/bin`, which asks for your password.
+4. Continue with [steps 2–6 below](#2-configure-databases). Skip `db-proxy install`: the app manages the service (`db-proxy service enable | disable | status`).
+
+The app *is* the CLI. `Contents/MacOS/db-proxy` is the same signed binary, so Keychain items keep working across versions signed by the same identity.
+
+## Setup (from source)
 
 ### 1. Build
 
@@ -135,7 +144,8 @@ Each agent gets its own token (`token/<agent>` in the Keychain), so the query lo
 | `db-proxy password rm <server>/<user>` | Remove a password |
 | `db-proxy token add <name>` | Create a 256-bit token for a custom client and print it once |
 | `db-proxy token rm <agent>` | Revoke an agent's token (takes effect on restart) |
-| `db-proxy install [--config]` | Install and start the launchd agent |
+| `db-proxy service enable\|disable\|status` | Manage the background service of db-proxy.app (SMAppService) |
+| `db-proxy install [--config]` | Install a launchd agent for a source build (not needed with the app) |
 
 The config path defaults to `~/.config/db-proxy/databases.toml`.
 
@@ -259,11 +269,20 @@ DB_PROXY_TEST_PASSWORD=... DB_PROXY_TEST_USER=postgres DB_PROXY_TEST_DB=postgres
 
 `scripts/test.sh` starts a throwaway server on port 7499 with a generated config, a separate Keychain service (`db-proxy-test`) and a temp log dir, then runs `scripts/checks.sh` (36 end-to-end checks covering auth, read-only enforcement, multi-statement rejection, the result cap, connection diagnosis, type decoding, log protections and retention) against your local Postgres. Use a non-superuser role; the checks only run read-only statements and `SET`s.
 
+Build the DMG (universal, signed, in `dist/`):
+
+```sh
+scripts/package.sh 0.1.0
+```
+
+It's signed with your Apple Development identity and not notarized. For a double-click install with no Gatekeeper prompt, sign with a **Developer ID Application** identity and notarize (`xcrun notarytool submit --wait`, then `xcrun stapler staple`).
+
 Design notes and decisions: [`DESIGN.md`](DESIGN.md).
 
 ## Limitations
 
 - macOS only (Keychain, launchd).
+- The DMG isn't notarized yet; each version needs "Open Anyway" once.
 - Postgres only.
 - `tls = "require"` encrypts but doesn't verify the server certificate (like libpq `sslmode=require`).
 - No transactions across calls; one call is one unit of work.

@@ -190,16 +190,12 @@ func randomToken() -> String {
     return bytes.map { String(format: "%02x", $0) }.joined()
 }
 
-/// Tokens are loaded when `serve` starts, so a new or revoked token needs a restart.
+/// Tokens are loaded when `serve` starts, so a new or revoked token needs a restart. Works for both the
+/// app's SMAppService agent and a source build's `install` plist (same label).
 func restartServiceIfInstalled() {
-    let plist = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/LaunchAgents/\(Install.label).plist")
-    guard FileManager.default.fileExists(atPath: plist.path) else {
-        print("restart `db-proxy serve` to apply the token change")
-        return
-    }
-    if (try? run("/bin/launchctl", ["kickstart", "-k", "gui/\(getuid())/\(Install.label)"])) != nil {
+    if (try? run("/bin/launchctl", ["kickstart", "-k", "gui/\(getuid())/\(Install.label)"], quiet: true)) != nil {
         print("restarted the db-proxy service")
     } else {
-        print("could not restart the service; run: launchctl kickstart -k gui/\(getuid())/\(Install.label)")
+        print("restart `db-proxy serve` to apply the token change")
     }
 }

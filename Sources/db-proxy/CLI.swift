@@ -4,11 +4,23 @@ import Logging
 import PostgresNIO
 
 @main
+enum Entry {
+    static func main() async {
+        // Double-clicked in Finder: no arguments and no terminal. Run the guided setup instead of printing help.
+        if CommandLine.arguments.dropFirst().allSatisfy({ $0.hasPrefix("-psn_") }), isatty(STDIN_FILENO) == 0,
+           AppBundle.url != nil {
+            await FirstRun.run()
+            return
+        }
+        await DBProxy.main()
+    }
+}
+
 struct DBProxy: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "db-proxy",
         abstract: "One local MCP server in front of all your Postgres databases.",
-        subcommands: [Serve.self, Check.self, Agent.self, Password.self, Token.self, Install.self])
+        subcommands: [Serve.self, Check.self, Agent.self, Password.self, Token.self, Service.self, Install.self])
 }
 
 struct ConfigOption: ParsableArguments {
@@ -21,8 +33,16 @@ struct Serve: AsyncParsableCommand {
     @OptionGroup var options: ConfigOption
     @Option(help: "Port to listen on.") var port = 7432
     @Option(help: "Directory for the query log.") var logDir = QueryLog.defaultDir.path
+    @Option(help: "Append stdout/stderr to this file (\"~/\" allowed). Used by the background service.") var logFile: String?
 
     func run() async throws {
+        if let logFile {
+            let path = (logFile as NSString).expandingTildeInPath
+            try? FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+            freopen(path, "a", stdout)
+            freopen(path, "a", stderr)
+            setvbuf(stdout, nil, _IOLBF, 0)
+        }
         try await serve(config: Config.load(options.config), port: port, logDir: URL(filePath: logDir))
     }
 }
@@ -133,7 +153,7 @@ struct Token: ParsableCommand {
 
 struct Install: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Install and start a launchd agent that keeps `serve` running.")
+        abstract: "Install a launchd agent for a source build (the .app uses `service enable` instead).")
     @OptionGroup var options: ConfigOption
     static let label = "dev.db-proxy"
 

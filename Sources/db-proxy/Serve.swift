@@ -19,7 +19,8 @@ func serve(config: Config, port: Int, logDir: URL) async throws {
     let logger = Logger(label: "db-proxy")
 
     let agents = try Keychain.agentTokens()  // token -> agent name
-    guard !agents.isEmpty else { throw ConfigError("no agent tokens; run `db-proxy token add <agent>` first") }
+    // Start anyway (a crash would put the background service into a restart loop); every request gets 401.
+    if agents.isEmpty { logger.warning("no agent tokens yet; run `db-proxy agent add claude` (or cursor, codex)") }
 
     // One pool per (server, user, database). Pools open no connections until first use.
     var pools: [String: PostgresClient] = [:]

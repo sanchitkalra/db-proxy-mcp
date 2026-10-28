@@ -1,0 +1,25 @@
+db-proxy — one local MCP server for all your Postgres databases
+https://github.com/sanchitkalra/db-proxy-mcp
+
+1. Drag db-proxy.app into Applications.
+
+2. Open it. macOS will block it the first time, because this build is not notarized by Apple:
+     "db-proxy" Not Opened → click Done.
+   Then open  System Settings → Privacy & Security, scroll down to
+     "db-proxy" was blocked to protect your Mac.  → click Open Anyway, and confirm.
+   (Terminal alternative: xattr -dr com.apple.quarantine /Applications/db-proxy.app)
+
+3. Open db-proxy again. It will:
+     - create ~/.config/db-proxy/databases.toml (an example to edit)
+     - start the background server (shows in System Settings → General → Login Items)
+     - add the `db-proxy` command to /usr/local/bin (asks for your password)
+
+4. In Terminal:
+     $EDITOR ~/.config/db-proxy/databases.toml
+     db-proxy password set <server>/<user>
+     db-proxy agent add claude          # or cursor, codex
+     launchctl kickstart -k gui/$(id -u)/dev.db-proxy
+     db-proxy check
+
+Uninstall: db-proxy service disable, then delete /Applications/db-proxy.app and /usr/local/bin/db-proxy.
+Each new version needs the "Open Anyway" step once.

@@ -3,3 +3,4 @@
 *.xcodeproj
 # Real configs name internal hosts and roles; commit databases.example.toml instead.
 databases.toml
+dist/
